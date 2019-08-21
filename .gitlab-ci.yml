@@ -1,0 +1,58 @@
+stages:
+    - deploy_dev
+    - deploy_prod
+deploy_project_dev:
+    stage: deploy_dev
+    script:
+        - export CURRDIR=$(pwd)
+        - cd /var/www/portalpanidor/
+        - export DIRTOMOVE=$(date +%Y%m%d_%H%M%S)
+        - mkdir $DIRTOMOVE
+        - shopt -s extglob
+        - mv !(vendor|$DIRTOMOVE) $DIRTOMOVE || exit 0
+        - mv .e* $DIRTOMOVE || exit 0
+        - mv .g* $DIRTOMOVE || exit 0
+        - mv .h* $DIRTOMOVE || exit 0
+        - cd $CURRDIR
+        - cp -rf . /var/www/portalpanidor/
+        - cp .htaccess /var/www/portalpanidor/        
+        - cp .env.deploy_dev /var/www/portalpanidor/.env
+        - cd /var/www/portalpanidor/
+        - composer update
+        - composer install
+        - php artisan cache:clear
+        - php artisan view:clear
+        - php artisan config:cache
+        - chmod 777 -R /var/www/portalpanidor/storage/ || exit 0
+        - chmod 777 -R /var/www/portalpanidor/bootstrap/ || exit 0
+    environment:
+        name: dev
+        url: http://portalpanidor.dev.local/
+    tags:
+      - dev.local
+
+deploy_project_prod:
+    stage: deploy_prod
+    script:
+        - ls -lah
+        - lftp -u realnatabackoffice@realnata.pt,eEeLBbqnea5 10.32.0.90 -e "mirror -R . . ; quit"
+        - lftp -u realnatabackoffice@realnata.pt,eEeLBbqnea5 10.32.0.90 -e 'mv .env.deploy_prod .env; quit'
+        - ssh -t root@10.32.0.90 "cd /home/realnata/public_html/backoffice/ && php -ea_php 71 /opt/cpanel/composer/bin/composer install || exit 0"
+        - ssh -t root@10.32.0.90 "chmod 777 -R /home/realnata/public_html/backoffice/storage/ || exit 0"
+        - ssh -t root@10.32.0.90 "chmod 777 -R /home/realnata/public_html/backoffice/bootstrap/ || exit 0"
+        - ssh -t root@10.32.0.90 "cd /home/realnata/public_html/backoffice/ &&  chown -R realnata:realnata * || exit 0"
+        - ssh -t root@10.32.0.90 "cd /home/realnata/public_html/backoffice/ && php -ea_php 71 artisan cache:clear || exit 0"
+        - ssh -t root@10.32.0.90 "cd /home/realnata/public_html/backoffice/ && php -ea_php 71 artisan view:clear || exit 0"
+        - ssh -t root@10.32.0.90 "cd /home/realnata/public_html/backoffice/ && php -ea_php 71 artisan config:cache || exit 0"
+        - ssh -t root@10.32.0.90 "cd /home/realnata/public_html/backoffice/ && php -ea_php 71 artisan config:cache || exit 0"
+        - ssh -t root@10.32.0.90 "cd /home/realnata/public_html/backoffice/ && php -ea_php 71 artisan migrate || exit 0"
+        - ssh -t root@10.32.0.90 "cd /home/realnata/public_html/backoffice/ && php -ea_php 71 artisan db:seed || exit 0"
+
+    environment:
+        name: production
+        url: http://realnata.guisoft.pt/
+    when: manual
+    only:
+    - master
+    tags:
+      - dev.local

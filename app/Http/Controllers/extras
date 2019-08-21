@@ -1,0 +1,446 @@
+
+    public function Clientorder(Request $request)
+     {
+    $data = $request->json()->all();
+    $email = $data['email'];
+    $hash = $data['hash'];
+    $mpos = $data['mpos_id'];
+    $pictim =$data['pickTime']; 
+    $mposId= $data['mpos_id'];
+       
+        if( $user= clientUser::where('email','=',$email)->where('hash','=',$hash)->first()){
+            $id = $user['id'];
+                 if($og_data = MPOS::where('id','=',$mposId)->first()){
+                  $ogurl =$og_data->OGURL;
+                  $ogApiPass =$og_data->OGapipass;
+                  $ogUser =$og_data->OGapiUser;
+                  $ogclient = og_client::where('client_id','=',$id)->first();
+                 }
+                else 
+                return response()->json(['error'=>"Mpos not found "]);
+                   if($ogclient == null)
+                {
+
+                  if($test = clientUser::where('id','=',$id)
+                  ->where('address','=', null)
+                  ->where('tax_id','=',null)
+                  ->where('zipcode','=',null)
+                  ->where('city','=',null)->first())
+                  {
+
+                    return response()->json(['error'=>"Incomplete Client Information "]);
+
+                  } 
+
+                    $panidorclient = clientUser::where('id','=',$id)->first();
+
+                    $og_name =  $panidorclient['first_name'];
+                    $og_add  = $panidorclient['address'];
+                    $og_city   =  $panidorclient['city'];
+                    $og_zipcode =  $panidorclient['zipcode'];
+                    $og_country = $panidorclient['country'];
+                    $og_taxID  =  $panidorclient['tax_id'];
+   
+   
+                    $ogclient = new Client();
+                    $response = $ogclient->request('POST', $ogurl.'/api/entities/customers',[
+                    
+                      'auth' => [$ogUser, $ogApiPass ],
+            
+                      'form_params'=>['name'=> $og_name,
+                      'address'=>$og_add,
+                      'city'=>$og_city, 
+                      'zipcode'=>$og_zipcode,
+                      'country'=>$og_country,
+                      'customertaxid'=>$og_taxID,]
+                        ]);
+                    
+                          $customer=$response->getBody();
+                          $newog_id= json_decode($customer)->customer_id;
+                          $og = new og_client;
+                          $og->client_id = $id ; 
+                          $og->mpos_id = $mpos;
+                          $og->og_client_id = $newog_id;
+                          $og->save();
+
+
+
+                     }
+                       sleep(2);
+            if($ogclient = og_client::where('client_id','=',$id)->first() ){
+
+             $ogclient_id = $ogclient['og_client_id'];
+             $idcustomer=$ogclient_id;
+             $order_request = json_decode(json_encode($data),true);
+             $order_product=  $order_request ['products'];
+             $orderitems = $order_product;
+             $listitme = $orderitems;
+            
+            foreach($listitme as $new_list){
+                $item = $new_list['item'];
+
+                  $lines[] =  [
+                    "idarticle"=>$item['codArtigo'],
+                    "quantity"=>$item['qty'],
+                    "sellingprice"=>$item['price']
+                 ];
+
+              }
+                    $client = new Client();
+                  
+                    $response = $client->request('POST', $ogurl.'/api/sales/documents/E',[
+       
+                                  'auth' => [$ogUser, $ogApiPass ],
+                                 'form_params'=>[
+                                 'idcustomer'=>$ogclient_id,
+                                 'lines'=>$lines,
+                                 ], 
+                             
+                              ]
+                          
+                             );
+                          $orderstatus = $response->getBody();
+                          $order= json_decode($orderstatus);
+                         /*  if($order->result == error){
+
+
+
+
+
+                          
+                            return response($guestdat);
+                          }
+
+                          dd($order); */
+                          $order_number= json_decode($orderstatus)->document_number;
+                          $orderPrice= json_decode($orderstatus)->document->total;
+                          $user= clientUser::where('email','=',$email)->where('hash','=',$hash)->first();  
+                          $idcustomer = $user['id'];
+
+
+
+
+
+                          $totalP = orderDetails::where('order_id','=', $order_number )->get();
+                          $ordN = new order();
+                          $ordN->clientuser_id =$idcustomer;
+                          $ordN->pickuptime =$pictim;
+                          $ordN->mpos_id= $mpos;
+                          $ordN->og_order_id = $order_number;
+                          $ordN->total_price = $orderPrice;
+                          $ordN->save();
+
+                          sleep(2);
+                       foreach ($lines as $line){
+                            $paniProduct = product::where('codArtigo','=',$line['idarticle'])->first();
+                            $product_id = $paniProduct['id'];
+                            $paniPID = $paniProduct['codArtigo'];
+
+
+                            $current_order = order::where('og_order_id','=', $order_number )->first();
+                            $currentOrderval = $current_order['id'];   
+                            $paniVatid = $paniProduct['vatid'];    
+                           
+                             
+                            $ord =  new orderDetails;
+                            $ord->price= $line['sellingprice'];
+                            $ord->product_id = $product_id;
+                            $ord->quantity = $line['quantity'];
+                            $ord->vatid =    $paniVatid;
+                            $ord->order_id = $currentOrderval;
+                            $ord->save();
+                       
+                         /*    $msale = new mposSale;
+                            $msale->product_id = $product_id;
+                            $msale->quntity=$line['quantity'];
+                            $msale->og_invoice_id = $order_number;
+                            $msale->code_Artigo = $paniPID;
+                            $msale->price =$line['sellingprice'];
+                            $msale->mpos_id = $mposId;
+                            $msale->save();
+                              */
+                       
+
+
+                        
+                        }
+
+                         
+
+                       return response()->json(['status'=>'Order PLaced','orderId'=>$order_number]);
+    
+       
+                      
+                         return response($guestdat);
+           
+             }else 
+                
+               
+
+
+           
+              return response()->json(['status'=>'sorry user not register for purchase ','code'=>"2001"]);
+
+      }else 
+      return response('unauthorised user');
+    }  
+
+
+
+
+ public function checkorder(Request $request)
+   {
+    try{
+    $email = $request->input('email');
+    $hash = $request->input('hash');
+
+      if( $user= clientUser::where('email','=',$email)->where('hash','=',$hash)->first()){
+       $id = $user->id;
+
+       $orderstatus= order::where('clientUser_id','=',$id)->get();
+
+       return response()->json(['success'=>$orderstatus]);
+    
+
+   }
+
+}catch(\Illuminate\Database\QueryException $e){
+      
+}  return response()->json(['error'=>$e]);
+
+}
+
+
+/* 
+   
+ public function create_ogclient(Request $request)
+ {
+    try{
+
+        $email  = $request->input('email');
+        $hash   = $request->input('hash');
+        $mpos   = $request->input('mpos_id');
+        $og_name = $request->input('name');
+        $og_add  = $request->input('address');
+        $og_city   = $request->input('city');
+        $og_zipcode = $request->input('zipcode');
+        $og_country = $request->input('country');
+        $og_taxID  = $request->input('taxid');
+
+
+
+        $v = Validator::make($request->all(), [
+          'emampos_id' => 'required',
+          'name' => 'required',
+          'address'=>'required', 
+          'city'=>'required', 
+          'zipcode' =>'required',
+          'country' =>'required',
+          'taxid' =>'required',
+      ]);
+
+
+      if ($v->fails())
+      {
+        return response()->json(['error'=>"Validation failed ",'code'=>"2001"]);
+      }
+ 
+        if( $user= clientUser::where('email','=',$email)->where('hash','=',$hash)->first()){
+             $panidor_id = $user['id'];
+
+             $og_data = MPOS::where('id','=',$mposId)->first();
+             $ogurl =$og_data->OGURL;
+             $ogApiPass =$og_data->OGapipass;
+             $ogUser =$og_data->OGapiUser;
+             $ogclient = og_client::where('client_id','=',$id)->first();
+   
+        $ogclient = new Client();
+        $response = $ogclient->request('POST','https://testesapi.officegest.com/api/entities/customers',[
+        
+          'auth' => ['vivik', 'd5cf4244757ace178666f938d4c77505292e436d'],
+
+          'form_params'=>['name'=> $og_name,'address'=>$og_add,'city'=>$og_city, 'zipcode'=>$og_zipcode,'country'=>$og_country,'customertaxid'=>$og_taxID,]
+            ]);
+           
+            $customer=$response->getBody();
+             $newog_id= json_decode($customer)->customer_id;
+              $og = new og_client;
+              $og->client_id =$panidor_id; 
+              $og->mpos_id = $mpos;
+              $og->og_client_id = $newog_id;
+              $og->save();
+              return response()->json(['success'=>"user created successfully ",'code'=>"2001"]);
+             }else 
+             return response()->json(['error'=>'somthing went wrong',]);
+        
+    }catch(\Illuminate\Database\QueryException $e){
+      
+    }
+}
+ */
+
+
+ /*  $V1  = Validator::make($request->all(), [
+         'filename' => 'required',
+       /*   'filename.*' => 'image|mimes:jpeg,png,jpg,gif,svg|max:2048'  
+         ]);
+
+      */
+
+ 
+
+
+
+
+
+
+
+
+ public function addProduct(Request $request)
+    {
+        $mpos = mpos::all();
+        $ogProductname=$request->input('product_name');
+        $ogVat= $request->input('vat_id');
+        $og_shortdiscription=$request->input('product_discription');
+        $og_price= $request->input('product_price');
+        $article= $request->input('article');
+        $mpos_id =$request->input('mpos');
+
+        //ADD PRODUCT TO OFFICE-GUEST RECEIVE THE ARTICAL CODE AND SAVE IN PANIDOR PRODUCT TABLE
+     try{
+      
+        if(Sentinel::check() && Sentinel::getUser()->roles()->first()->slug =='admin')
+        {
+         foreach($mpos as $mposlist)
+         {
+           $url = $mposlist->OGURL;
+      
+           if (!empty($url) && strlen($url)>0 && $url[(strlen($url)-1)]=='/')
+           {
+             $url =substr($url, 0, (strlen($url)-1));
+           }
+         
+           $ogurl =  $mposlist->OGURL;
+           $ogApiPass =  $mposlist->OGapipass;
+           $ogUser = $mposlist->OGapiUser;
+
+             $checkclient = new Client();
+             $response = $checkclient->request('GET', $ogurl.'/api/stocks/articles/'.$article,[
+      
+               'auth' => [$ogUser, $ogApiPass ],
+                    
+                ]
+                 
+                );
+                $apistatus=$response->getBody();
+               
+                $product_check= json_decode($apistatus)->result;
+                $product_c= json_decode($apistatus)->code;
+             
+  
+  
+             if($product_check == "ok" ){
+   
+                $panidorProduct = new product;
+                $panidorProduct->name = $ogProductname;
+                $panidorProduct->discription =$ogProductname;
+                $panidorProduct->codArtigo=$article;
+                $panidorProduct->vatid =$ogVat;
+                $panidorProduct->price=$og_price;
+                $panidorProduct->short_description =$og_shortdiscription;
+                $panidorProduct->save();
+ 
+                return redirect()->back()->with(['FOUND'=>" PRODUCT AlREADY EXSIST SUCCESSFUL "]);
+
+             }
+             
+             
+             if( $product_c == "2005"){
+ 
+ 
+
+                $client = new Client();
+                    
+                $response1= $client->request('POST', $ogurl.'/api/stocks/articles',[
+    
+                  'auth' => [$ogUser, $ogApiPass ],
+                  'form_params'=>[
+                      'description'=>$ogProductname,
+                      'articletype'=>"N",
+                    'vatid'=> $ogVat,
+                      'unit'=>"UN",
+                      'short_description'=>$og_shortdiscription,
+                      'sellingprice'=>$og_price,
+                  ], 
+                      
+                  ]
+                   
+                  );
+    
+                  $productstatus = $response1->getBody();
+                  
+                   $prodcut_Code= json_decode($productstatus)->article_id; 
+     
+                   $panidorProduct = new product;
+                   $panidorProduct->name = $ogProductname;
+                   $panidorProduct->discription =$ogProductname;
+                   $panidorProduct->codArtigo=$article;
+                   $panidorProduct->vatid =$ogVat;
+                   $panidorProduct->price=$og_price;
+                   $panidorProduct->short_description =$og_shortdiscription;
+                   $panidorProduct->save();
+    
+                   return redirect()->back()->with(['ADDPRODUCT'=>" PRODUCT ADDED SUCCESSFUL "]);
+
+
+
+             }
+
+            }
+        }else 
+             
+              return redirect()->back()->with(['FAILED'=>" FAILED TO ADDED SUCCESSFUL "]);
+
+
+        }catch(\Illuminate\Database\QueryException $e){
+
+    }
+
+
+ } 
+  {{--   <div class="col-lg-6 col-md-12">
+                            <div class="card">
+                                <div class="card-header card-header-warning">
+                                    <h4 class="card-title">Pending Orders</h4>
+                                    <p class="card-category"></p>
+                                </div>
+                                <div class="card-body table-responsive"> 
+                                    <table class="table table-hover">
+                                        <thead class="text-warning">
+                                            <th>ID</th>
+                                            <th>Name</th>
+                                            <th>Order-ID</th>
+                                            <th>MPOS -ID</th>
+                                            <th>Total Price</th>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($offerProduct as $product)
+
+                                            <tr>
+                                           
+                                            <td>{{$product->name}}</td>
+                                            @foreach($product->campaign_Product as $offer_product)
+                                         
+                                            <td>{{ date('d-m-Y', strtotime($offer_product->start_date))}}</td>
+                                            <td>{{ date('d-m-Y', strtotime($offer_product->end_date))}}</td>
+                                            <td>{{$offer_product->camp_mpos_name}}</td>
+
+                                            @endforeach
+                                            </tr>
+                                            @endforeach
+                                           
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div> --}}
