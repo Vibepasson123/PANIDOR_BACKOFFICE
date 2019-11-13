@@ -6,25 +6,20 @@ use Illuminate\Database\Eloquent\Model;
 
 class MposCamp extends Model
 {
-    protected $table= 'camp_mpos';
+    protected $table = 'camp_mpos';
 
-    protected $fillable= ['mpos_id','camp_id','ogCampaign_product_id','start_date','end_date'];
+    protected $fillable = ['mpos_id', 'camp_id', 'ogCampaign_product_id', 'start_date', 'end_date'];
 
 
 
     public function productCampaing()
     {
-     return $this-> belongsToMany(product::class);
-
+        return $this->belongsToMany(product::class);
     }
 
     public function link_camp()
     {
 
-        return  $this->belongsToMany(Camp::class) ;
-
-
+        return  $this->belongsToMany(Camp::class);
     }
-    
 }
-

@@ -6,9 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class order extends Model
 {
-    protected $table='order';
+    protected $table = 'order';
 
-    protected $fillable= ['clientUser_id','product_id','quantity','pickupTime','mpos_id','og_order_id'];
+    protected $fillable = ['clientUser_id', 'product_id', 'quantity', 'pickupTime', 'mpos_id', 'og_order_id'];
 
 
 
@@ -16,12 +16,7 @@ class order extends Model
 
     public function orderDetails()
     {
-    
-        return  $this->belongsToMany(product::class) ;
-    
-    
+
+        return  $this->belongsToMany(product::class);
     }
-
 }
-
-

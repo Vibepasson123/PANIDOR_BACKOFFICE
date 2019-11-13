@@ -1,69 +1,48 @@
 <?php
 
 namespace App\Http\Controllers;
+
 use Sentinel;
 use Activation;
-use Mail; 
-use App\User; 
+use Mail;
+use App\User;
 use App\roles;
 use Illuminate\Http\Request;
 
 class login extends Controller
 {
-    public function postlogin(Request $request)
+   public function postlogin(Request $request)
    {
-     try{  
-       
-    if($user=Sentinel::authenticate($request->all())){
+      try {
 
-      $log=Sentinel::getUser()->id;
-      
-      $sug=Sentinel::getUser()->roles()->first()->slug;
-   /*    $user_details = User::with('user_role')->with('user_activation')->get();
-    foreach($user_details as $test)
-    {
-       $t =  $test->id;
-         foreach($test->user_role as $newtest)
-         {
-            $p = $newtest->role_id;
+         if ($user = Sentinel::authenticate($request->all())) {
 
-             dd($p);
+            $log = Sentinel::getUser()->id;
 
-         }
-
-
-    } */
-
-        return redirect('/home');
-    }else
-    return redirect()->back()->with(['incrorrect'=>'check Input data']);
-
-
-     }catch(ThrottlingException $e){
-        $delay = $e->getDelay();
-
-         return redirect('/')->with(['error'=>" You are band for $delay seconds"]);
-         
-
-      }catch (NotActivatedException $e){
-
-        return redirect()->back()->with(['notactive'=>'Account Not Activated']);
-        
-     }
-
-
+            $sug = Sentinel::getUser()->roles()->first()->slug;
           
-    }
+            return redirect('/home');
+         } else
+
+            return redirect()->back()->with(['incrorrect' => 'check Input data']);
+
+      } catch (ThrottlingException $e) {
+
+         $delay = $e->getDelay();
+
+         return redirect('/')->with(['error' => " You are band for $delay seconds"]);
+         
+      } catch (NotActivatedException $e) {
+
+         return redirect()->back()->with(['notactive' => 'Account Not Activated']);
+      }
+   }
 
 
-    public function logout()
-    {
+   public function logout()
+   {
 
-     Sentinel::logout();
-     return redirect('/');
-    
-
-
-
-    }
+      Sentinel::logout();
+      return redirect('/');
+   }
 }

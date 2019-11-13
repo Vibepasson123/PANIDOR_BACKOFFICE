@@ -11,10 +11,6 @@ class clientUser extends Model
 
    protected $fillable=['email','hash'];
 
-
-   
-
-
    public function clientVoucher()
 
    {

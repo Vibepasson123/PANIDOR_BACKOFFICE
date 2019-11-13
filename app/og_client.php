@@ -9,11 +9,10 @@ class og_client extends Model
     protected $table = 'MPOS_clientuser';
 
     protected $fillable = [
-        
-         ' mpos_id',
-          'client_id',
-          'og_client_id'
-    
-    ];
 
+        ' mpos_id',
+        'client_id',
+        'og_client_id'
+
+    ];
 }

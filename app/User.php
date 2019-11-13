@@ -10,7 +10,7 @@ use Illuminate\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 
 
-class User extends EloquentUser 
+class User extends EloquentUser
 {
     use Notifiable, Authenticatable;
 
@@ -24,10 +24,10 @@ class User extends EloquentUser
         'last_name',
         'email',
         'password',
-        
+
 
     ];
-  /**
+    /**
      * The attributes that should be hidden for arrays.
      *
      * @var array
@@ -40,14 +40,11 @@ class User extends EloquentUser
     public function user_role()
     {
 
-        return $this->hasMany(roles::class);  
+        return $this->hasMany(roles::class);
     }
-    
+
     public function user_activation()
     {
-        return $this->hasMany(activation::class);  
+        return $this->hasMany(activation::class);
     }
-
-
-   
 }

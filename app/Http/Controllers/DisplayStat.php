@@ -17,8 +17,5 @@ class DisplaytStat extends Controller
        
      return view('mViews.Mstac',compact('sale','lat','long') );
 
-
-
-
     }
 }
