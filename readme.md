@@ -6,7 +6,7 @@ Guisoft user
 test3@test.com
 
 123456
- Guisoft master user
+ master user
  master@master
  pass =  963852
 ###portalpanidor user
